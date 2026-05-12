@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:invoicehub/screens/invoice/create_invoice_screen.dart';
+import 'package:invoicehub/providers/invoice_provider.dart';
 
 class HomeTab extends ConsumerWidget {
   const HomeTab({super.key});
@@ -37,7 +38,7 @@ class HomeTab extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildStatCards(context),
+            _buildStatCards(context, ref),
             const SizedBox(height: 24),
             ElevatedButton.icon(
               onPressed: () {
@@ -75,18 +76,27 @@ class HomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatCards(BuildContext context) {
+  Widget _buildStatCards(BuildContext context, WidgetRef ref) {
+    final invoicesAsync = ref.watch(invoicesProvider);
+
     return Row(
       children: [
         Expanded(
           child: Card(
             color: Colors.blue.shade50,
-            child: const Padding(
-              padding: EdgeInsets.all(16.0),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  Text('Total Invoices', style: TextStyle(color: Colors.blue)),
-                  Text('0', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const Text('Total Invoices', style: TextStyle(color: Colors.blue)),
+                  invoicesAsync.when(
+                    data: (invoices) => Text(
+                      invoices.length.toString(),
+                      style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    ),
+                    loading: () => const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                    error: (_, __) => const Text('0', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  ),
                 ],
               ),
             ),
@@ -96,12 +106,22 @@ class HomeTab extends ConsumerWidget {
         Expanded(
           child: Card(
             color: Colors.green.shade50,
-            child: const Padding(
-              padding: EdgeInsets.all(16.0),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  Text('Total Sales', style: TextStyle(color: Colors.green)),
-                  Text('₹0', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  const Text('Total Sales', style: TextStyle(color: Colors.green)),
+                  invoicesAsync.when(
+                    data: (invoices) {
+                      final total = invoices.fold<double>(0, (sum, item) => sum + item.grandTotal);
+                      return Text(
+                        '₹${total.toStringAsFixed(0)}',
+                        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      );
+                    },
+                    loading: () => const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2)),
+                    error: (_, __) => const Text('₹0', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                  ),
                 ],
               ),
             ),

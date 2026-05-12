@@ -40,7 +40,8 @@ class ProfileService extends SupabaseService {
     final response = await client
         .from(DatabaseTables.profiles)
         .select()
-        .eq('role', 'shop_owner');
+        .eq('role', 'shop_owner')
+        .order('shop_name');
     
     return (response as List).map((p) => Profile.fromJson(p)).toList();
   }

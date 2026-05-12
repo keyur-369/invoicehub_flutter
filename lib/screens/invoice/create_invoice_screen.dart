@@ -5,10 +5,11 @@ import 'package:invoicehub/models/business_models.dart';
 import 'package:invoicehub/models/invoice_model.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:invoicehub/repositories/business_repository.dart';
+import 'package:invoicehub/screens/invoice/invoice_preview_screen.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:invoicehub/providers/invoice_provider.dart';
 import 'package:uuid/uuid.dart';
 
-final businessRepoProvider = Provider((ref) => BusinessRepository());
 
 class CreateInvoiceScreen extends ConsumerStatefulWidget {
   const CreateInvoiceScreen({super.key});
@@ -27,6 +28,7 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
   double _subtotal = 0.0;
   double _gstTotal = 0.0;
   double _grandTotal = 0.0;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -71,7 +73,7 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(profileProvider).value;
+    ref.watch(profileProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Create Invoice')),
@@ -97,21 +99,119 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
             const SizedBox(height: 24),
             _buildSummarySection(),
             const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {
-                // Implement save and PDF generation
-              },
+            ElevatedButton.icon(
+              onPressed: _isSaving ? null : () => _openPreview(context),
+              icon: _isSaving 
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.visibility_outlined),
+              label: Text(
+                _isSaving ? 'SAVING INVOICE...' : 'PREVIEW & GENERATE PDF', 
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)
+              ),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                backgroundColor: Colors.green,
+                backgroundColor: Colors.indigo.shade700,
                 foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text('GENERATE INVOICE & PDF', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _openPreview(BuildContext context) async {
+    final profile = ref.read(profileProvider).value;
+    if (profile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile not loaded. Please try again.'), backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    // Validate: at least one item with a product name
+    final validItems = _items.where((i) => (i.productName?.isNotEmpty ?? false)).toList();
+    if (validItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add at least one product item.'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+
+    // Parse invoice date from controller
+    DateTime parsedDate;
+    try {
+      parsedDate = DateFormat('dd/MM/yyyy').parse(_dateController.text);
+    } catch (_) {
+      parsedDate = DateTime.now();
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      // 1. Create Invoice object
+      final invoice = Invoice(
+        id: const Uuid().v4(),
+        shopId: profile.id,
+        customerId: _selectedCustomer?.id,
+        invoiceNumber: _invoiceNumberController.text,
+        invoiceDate: parsedDate,
+        subtotal: _subtotal,
+        gstTotal: _gstTotal,
+        grandTotal: _grandTotal,
+        createdAt: DateTime.now(),
+      );
+
+      // 2. Map items with current totals
+      final finalItems = validItems.map((i) {
+        final base = i.quantity * i.rate;
+        final gstAmt = base * (i.gstPercentage / 100);
+        return InvoiceItem(
+          id: i.id,
+          invoiceId: invoice.id,
+          productName: i.productName,
+          quantity: i.quantity,
+          rate: i.rate,
+          gstPercentage: i.gstPercentage,
+          gstAmount: gstAmt,
+          totalAmount: base + gstAmt,
+        );
+      }).toList();
+
+      // 3. Save to Supabase
+      await ref.read(businessRepoProvider).createInvoice(invoice, finalItems);
+      
+      // 4. Refresh history provider
+      ref.invalidate(invoicesProvider);
+
+      if (!mounted) return;
+
+      // 5. Proceed to Preview
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => InvoicePreviewScreen(
+            invoiceNumber: _invoiceNumberController.text,
+            invoiceDate: parsedDate,
+            customer: _selectedCustomer,
+            items: finalItems,
+            subtotal: _subtotal,
+            gstTotal: _gstTotal,
+            grandTotal: _grandTotal,
+            shopProfile: profile,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save invoice: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   Widget _buildHeaderSection() {
@@ -154,7 +254,21 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Customer Details', style: TextStyle(fontWeight: FontWeight.bold)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Customer Details', style: TextStyle(fontWeight: FontWeight.bold)),
+                TextButton.icon(
+                  onPressed: () => _showAddCustomerDialog(context, profile?.id ?? ''),
+                  icon: const Icon(Icons.person_add_alt_1, size: 18),
+                  label: const Text('New Customer'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.blue,
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 12),
             TypeAheadField<Customer>(
               builder: (context, controller, focusNode) {
@@ -211,6 +325,244 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
     );
   }
 
+  void _showAddCustomerDialog(BuildContext context, String shopId) {
+    if (shopId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile not loaded. Please try again.')),
+      );
+      return;
+    }
+
+    final nameController = TextEditingController();
+    final mobileController = TextEditingController();
+    final cityController = TextEditingController();
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: const Row(
+            children: [
+              Icon(Icons.person_add_alt_1, color: Colors.blue),
+              SizedBox(width: 8),
+              Text('Add New Customer'),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'Customer Name *',
+                  prefixIcon: Icon(Icons.person_outline),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: mobileController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  labelText: 'Mobile',
+                  prefixIcon: Icon(Icons.phone_outlined),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: cityController,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  labelText: 'City',
+                  prefixIcon: Icon(Icons.location_city_outlined),
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (nameController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Customer name is required.')),
+                        );
+                        return;
+                      }
+                      setDialogState(() => isSaving = true);
+                      try {
+                        final newCustomer = Customer(
+                          id: '',
+                          shopId: shopId,
+                          customerName: nameController.text.trim(),
+                          mobile: mobileController.text.trim().isEmpty ? null : mobileController.text.trim(),
+                          city: cityController.text.trim().isEmpty ? null : cityController.text.trim(),
+                          createdAt: DateTime.now(),
+                        );
+                        await ref.read(businessRepoProvider).addCustomer(newCustomer);
+                        // Fetch the newly saved customer to auto-select it
+                        final customers = await ref.read(businessRepoProvider).getCustomers(shopId);
+                        final saved = customers.lastWhere(
+                          (c) => c.customerName == newCustomer.customerName,
+                          orElse: () => newCustomer,
+                        );
+                        if (ctx.mounted) Navigator.pop(ctx);
+                        setState(() => _selectedCustomer = saved);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('${saved.customerName} added & selected!'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isSaving = false);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      }
+                    },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+              child: isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Save & Select'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Opens a modal bottom sheet with a search field for products.
+  /// This avoids the TypeAheadField gesture conflict with the parent SingleChildScrollView.
+  Future<void> _showProductPickerSheet(int index) async {
+    List<MasterProduct> allProducts = [];
+    List<MasterProduct> filtered = [];
+    bool isLoading = true;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) {
+        final searchCtrl = TextEditingController();
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            // Load products once
+            if (isLoading) {
+              ref.read(businessRepoProvider).getMasterProducts().then((products) {
+                setSheetState(() {
+                  allProducts = products;
+                  filtered = products;
+                  isLoading = false;
+                });
+              }).catchError((e) {
+                setSheetState(() => isLoading = false);
+              });
+            }
+
+            return DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.75,
+              maxChildSize: 0.95,
+              minChildSize: 0.4,
+              builder: (_, scrollController) => Padding(
+                padding: EdgeInsets.only(
+                  left: 16, right: 16, top: 16,
+                  bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+                ),
+                child: Column(
+                  children: [
+                    // Handle
+                    Container(
+                      width: 40, height: 4,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                    ),
+                    const Text('Select Product', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: searchCtrl,
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'Search product...',
+                        prefixIcon: const Icon(Icons.search),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      ),
+                      onChanged: (val) {
+                        setSheetState(() {
+                          filtered = allProducts
+                              .where((p) => p.productName.toLowerCase().contains(val.toLowerCase()))
+                              .toList();
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: isLoading
+                          ? const Center(child: CircularProgressIndicator())
+                          : filtered.isEmpty
+                              ? const Center(child: Text('No products found'))
+                              : ListView.separated(
+                                  controller: scrollController,
+                                  itemCount: filtered.length,
+                                  separatorBuilder: (_, __) => const Divider(height: 1),
+                                  itemBuilder: (_, i) {
+                                    final product = filtered[i];
+                                    return ListTile(
+                                      leading: CircleAvatar(
+                                        backgroundColor: Colors.blue.shade50,
+                                        child: Text(
+                                          product.productName[0].toUpperCase(),
+                                          style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold),
+                                        ),
+                                      ),
+                                      title: Text(product.productName, style: const TextStyle(fontWeight: FontWeight.w500)),
+                                      subtitle: Text(
+                                        '${product.brand?.brandName ?? ''} • ${product.category?.categoryName ?? ''} • GST ${product.defaultGstPercentage.toStringAsFixed(0)}%',
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                      onTap: () {
+                                        setState(() {
+                                          _items[index] = InvoiceItem(
+                                            id: _items[index].id,
+                                            invoiceId: '',
+                                            productName: product.productName,
+                                            quantity: _items[index].quantity,
+                                            rate: _items[index].rate,
+                                            gstPercentage: product.defaultGstPercentage,
+                                          );
+                                          _calculateTotals();
+                                        });
+                                        Navigator.pop(ctx);
+                                      },
+                                    );
+                                  },
+                                ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildItemsList() {
     return ListView.separated(
       shrinkWrap: true,
@@ -224,6 +576,7 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
   }
 
   Widget _buildItemRow(int index) {
+    final selectedProductName = _items[index].productName;
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(side: BorderSide(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
@@ -235,18 +588,45 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
               children: [
                 Expanded(
                   flex: 3,
-                  child: TextField(
-                    decoration: const InputDecoration(hintText: 'Product Name', isDense: true),
-                    onChanged: (v) {
-                      _items[index] = InvoiceItem(
-                        id: _items[index].id,
-                        invoiceId: '',
-                        productName: v,
-                        quantity: _items[index].quantity,
-                        rate: _items[index].rate,
-                        gstPercentage: _items[index].gstPercentage,
-                      );
-                    },
+                  child: InkWell(
+                    onTap: () => _showProductPickerSheet(index),
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: Colors.grey.shade400)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.search, size: 18, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              selectedProductName ?? 'Tap to search product',
+                              style: TextStyle(
+                                color: selectedProductName != null ? Colors.black87 : Colors.grey,
+                                fontSize: 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (selectedProductName != null)
+                            GestureDetector(
+                              onTap: () => setState(() {
+                                _items[index] = InvoiceItem(
+                                  id: _items[index].id,
+                                  invoiceId: '',
+                                  quantity: _items[index].quantity,
+                                  rate: _items[index].rate,
+                                  gstPercentage: _items[index].gstPercentage,
+                                );
+                                _calculateTotals();
+                              }),
+                              child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 IconButton(onPressed: () => _removeItem(index), icon: const Icon(Icons.delete_outline, color: Colors.red)),
@@ -297,24 +677,56 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
+                // GST % — auto-fetched from product (set by admin), read-only
                 Expanded(
-                  child: TextField(
-                    decoration: const InputDecoration(labelText: 'GST %', isDense: true),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) {
-                      final gst = double.tryParse(v) ?? 18;
-                      setState(() {
-                        _items[index] = InvoiceItem(
-                          id: _items[index].id,
-                          invoiceId: '',
-                          productName: _items[index].productName,
-                          quantity: _items[index].quantity,
-                          rate: _items[index].rate,
-                          gstPercentage: gst,
-                        );
-                        _calculateTotals();
-                      });
-                    },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'GST %',
+                        style: TextStyle(fontSize: 11, color: Colors.black54),
+                      ),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: _items[index].productName != null
+                              ? Colors.indigo.shade50
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(
+                            color: _items[index].productName != null
+                                ? Colors.indigo.shade200
+                                : Colors.grey.shade300,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.lock_outline,
+                              size: 12,
+                              color: _items[index].productName != null
+                                  ? Colors.indigo.shade400
+                                  : Colors.grey,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _items[index].productName != null
+                                  ? '${_items[index].gstPercentage.toStringAsFixed(0)}%'
+                                  : '--',
+                              style: TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: _items[index].productName != null
+                                    ? Colors.indigo.shade700
+                                    : Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

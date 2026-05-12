@@ -19,12 +19,21 @@ class ProfileNotifier extends StateNotifier<AsyncValue<Profile?>> {
   final Ref _ref;
   ProfileNotifier(this._ref) : super(const AsyncValue.loading()) {
     _init();
+    // Fetch profile immediately if a session already exists (e.g. app restart)
+    final user = _ref.read(authServiceProvider).currentUser;
+    if (user != null) {
+      fetchProfile(user.id);
+    } else {
+      // No session — nothing to load
+      state = const AsyncValue.data(null);
+    }
   }
 
   void _init() {
     _ref.listen(authStateProvider, (previous, next) {
       final user = next.value?.session?.user;
       if (user != null) {
+        state = const AsyncValue.loading(); // Set loading before fetch
         fetchProfile(user.id);
       } else {
         state = const AsyncValue.data(null);
@@ -36,7 +45,7 @@ class ProfileNotifier extends StateNotifier<AsyncValue<Profile?>> {
     try {
       final profile = await _ref.read(profileServiceProvider).getProfile(userId);
       state = AsyncValue.data(profile);
-    } catch (e, st) {
+    } catch (e) {
       // If profile doesn't exist, we just set it to null so router can handle it
       state = const AsyncValue.data(null);
     }
