@@ -44,22 +44,30 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final loggingIn = state.matchedLocation == '/login' || state.matchedLocation == '/register';
       
-      if (authState.isLoading || profileAsync.isLoading) return null;
+      // 🚀 Optimization: Don't block on profile loading
+      if (authState.isLoading) return null;
 
       final user = authState.value?.session?.user;
       if (user == null) {
         return loggingIn ? null : '/login';
       }
 
-      final profile = profileAsync.value;
-      if (profile == null) return null;
+      // ⚡ FAST PATH: Use User Metadata for instant redirection
+      final metadata = user.userMetadata ?? {};
+      final role = metadata['role'] ?? 'shop_owner';
+      final isCompleted = metadata['is_profile_completed'] ?? false;
 
-      if (!profile.isProfileCompleted && state.matchedLocation != '/complete-profile') {
+      // Check profile state from provider if available
+      final profile = profileAsync.value;
+      final profileCompleted = profile?.isProfileCompleted ?? isCompleted;
+      final userRole = profile?.role ?? role;
+
+      if (!profileCompleted && state.matchedLocation != '/complete-profile') {
         return '/complete-profile';
       }
 
-      if (profile.isProfileCompleted && loggingIn) {
-        return profile.role == 'super_admin' ? '/admin' : '/dashboard';
+      if (profileCompleted && (loggingIn || state.matchedLocation == '/')) {
+        return userRole == 'super_admin' ? '/admin' : '/dashboard';
       }
 
       return null;

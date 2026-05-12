@@ -39,18 +39,23 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
 
     setState(() => _isLoading = true);
     try {
+      final user = ref.read(authServiceProvider).currentUser;
+      if (user == null) return;
+      
       final currentProfile = ref.read(profileProvider).value;
-      if (currentProfile == null) return;
 
-      String? logoUrl = currentProfile.logoUrl;
+      String? logoUrl = currentProfile?.logoUrl;
       if (_logoFile != null) {
         logoUrl = await ref.read(profileServiceProvider).uploadLogo(
-          currentProfile.id,
+          currentProfile?.id ?? user.id,
           _logoFile!,
         );
       }
 
-      final updatedProfile = currentProfile.copyWith(
+      final updatedProfile = Profile(
+        id: currentProfile?.id ?? '', // Upsert will handle this
+        userId: user.id,
+        role: currentProfile?.role ?? 'shop_owner',
         shopName: _shopNameController.text.trim(),
         ownerName: _ownerNameController.text.trim(),
         gstNumber: _gstController.text.trim(),
@@ -59,9 +64,11 @@ class _CompleteProfileScreenState extends ConsumerState<CompleteProfileScreen> {
         city: _cityController.text.trim(),
         logoUrl: logoUrl,
         isProfileCompleted: true,
+        createdAt: currentProfile?.createdAt ?? DateTime.now(),
+        updatedAt: DateTime.now(),
       );
 
-      await ref.read(profileProvider.notifier).updateProfile(updatedProfile);
+      await ref.read(profileProvider.notifier).saveProfile(updatedProfile);
       Fluttertoast.showToast(msg: 'Profile completed successfully!');
       if (mounted) context.go('/dashboard');
     } catch (e) {

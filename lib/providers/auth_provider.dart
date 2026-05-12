@@ -33,18 +33,18 @@ class ProfileNotifier extends StateNotifier<AsyncValue<Profile?>> {
   }
 
   Future<void> fetchProfile(String userId) async {
-    state = const AsyncValue.loading();
     try {
       final profile = await _ref.read(profileServiceProvider).getProfile(userId);
       state = AsyncValue.data(profile);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // If profile doesn't exist, we just set it to null so router can handle it
+      state = const AsyncValue.data(null);
     }
   }
 
-  Future<void> updateProfile(Profile profile) async {
+  Future<void> saveProfile(Profile profile) async {
     try {
-      await _ref.read(profileServiceProvider).updateProfile(profile);
+      await _ref.read(profileServiceProvider).upsertProfile(profile);
       state = AsyncValue.data(profile);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

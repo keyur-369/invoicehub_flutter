@@ -15,11 +15,14 @@ class ProfileService extends SupabaseService {
     return Profile.fromJson(response);
   }
 
-  Future<void> updateProfile(Profile profile) async {
+  Future<void> upsertProfile(Profile profile) async {
+    final data = profile.toJson();
+    if (profile.id.isEmpty) {
+      data.remove('id'); // Let Supabase generate a new UUID
+    }
     await client
         .from(DatabaseTables.profiles)
-        .update(profile.toJson())
-        .eq('id', profile.id);
+        .upsert(data);
   }
 
   Future<String> uploadLogo(String profileId, File file) async {
