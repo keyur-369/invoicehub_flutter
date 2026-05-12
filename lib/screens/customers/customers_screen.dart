@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:invoicehub/models/business_models.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
-import 'package:invoicehub/screens/invoice/create_invoice_screen.dart';
+import 'package:invoicehub/repositories/business_repository.dart';
 
 class CustomersScreen extends ConsumerWidget {
   const CustomersScreen({super.key});

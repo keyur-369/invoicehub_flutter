@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:invoicehub/models/invoice_model.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
-import 'package:invoicehub/screens/invoice/create_invoice_screen.dart';
+import 'package:invoicehub/repositories/business_repository.dart';
 
 final invoicesProvider = FutureProvider<List<Invoice>>((ref) async {
   final repo = ref.watch(businessRepoProvider);
