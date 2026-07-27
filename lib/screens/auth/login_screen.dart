@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -15,14 +16,34 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   Future<void> _login() async {
     setState(() => _isLoading = true);
+    final email = _emailController.text.trim();
     try {
-      await ref.read(authServiceProvider).signIn(
-            email: _emailController.text.trim(),
+      final response = await ref.read(authServiceProvider).signIn(
+            email: email,
             password: _passwordController.text.trim(),
           );
+      final user = response.user;
+      if (user != null && user.emailConfirmedAt == null) {
+        Fluttertoast.showToast(msg: 'Please verify your email address.');
+        if (mounted) context.go('/verify-email', extra: email);
+      }
+    } on AuthException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (msg.contains('email not confirmed') ||
+          msg.contains('not confirmed') ||
+          msg.contains('invalid login credentials')) {
+        // Redirect to verify email option
+        Fluttertoast.showToast(
+          msg: e.message,
+          toastLength: Toast.LENGTH_LONG,
+        );
+      } else {
+        Fluttertoast.showToast(msg: e.message);
+      }
     } catch (e) {
       Fluttertoast.showToast(msg: e.toString());
     } finally {
@@ -68,11 +89,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Password',
-                  prefixIcon: Icon(Icons.lock_outline),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
-                obscureText: true,
+                obscureText: _obscurePassword,
               ),
               const SizedBox(height: 24),
               ElevatedButton(

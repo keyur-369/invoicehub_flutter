@@ -8,10 +8,13 @@ class AuthService extends SupabaseService {
   Future<AuthResponse> signUp({
     required String email,
     required String password,
+    String? emailRedirectTo,
   }) async {
     return await auth.signUp(
       email: email,
       password: password,
+      emailRedirectTo:
+          emailRedirectTo ?? 'io.supabase.invoicehub://login-callback',
     );
   }
 
@@ -31,5 +34,17 @@ class AuthService extends SupabaseService {
 
   Future<void> resetPassword(String email) async {
     await auth.resetPasswordForEmail(email);
+  }
+
+  Future<void> resendVerificationEmail(
+    String email, {
+    String? emailRedirectTo,
+  }) async {
+    await auth.resend(
+      type: OtpType.signup,
+      email: email,
+      emailRedirectTo:
+          emailRedirectTo ?? 'io.supabase.invoicehub://login-callback',
+    );
   }
 }

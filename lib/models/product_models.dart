@@ -13,10 +13,12 @@ class ProductCategory {
 
   factory ProductCategory.fromJson(Map<String, dynamic> json) {
     return ProductCategory(
-      id: json['id'],
-      categoryName: json['category_name'],
+      id: json['id']?.toString() ?? '',
+      categoryName: json['category_name']?.toString() ?? 'Unnamed Category',
       createdBy: json['created_by'],
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at']) 
+          : DateTime.now(),
     );
   }
 
@@ -43,10 +45,12 @@ class ProductBrand {
 
   factory ProductBrand.fromJson(Map<String, dynamic> json) {
     return ProductBrand(
-      id: json['id'],
-      brandName: json['brand_name'],
+      id: json['id']?.toString() ?? '',
+      brandName: json['brand_name']?.toString() ?? 'Unnamed Brand',
       createdBy: json['created_by'],
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at']) 
+          : DateTime.now(),
     );
   }
 

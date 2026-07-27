@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
@@ -16,6 +17,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
 
   Future<void> _register() async {
     if (_passwordController.text != _confirmPasswordController.text) {
@@ -24,15 +27,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
 
     setState(() => _isLoading = true);
+    final email = _emailController.text.trim();
     try {
       await ref.read(authServiceProvider).signUp(
-            email: _emailController.text.trim(),
+            email: email,
             password: _passwordController.text.trim(),
           );
-      Fluttertoast.showToast(msg: 'Registration successful! Please check your email for verification.');
-      if (mounted) context.go('/login');
+      if (mounted) context.go('/verify-email', extra: email);
+    } on AuthException catch (e) {
+      final msg = e.message.toLowerCase();
+      if (e.code == 'over_email_send_rate_limit' ||
+          msg.contains('rate limit') ||
+          msg.contains('already registered') ||
+          msg.contains('already exists')) {
+        Fluttertoast.showToast(
+          msg: 'Email verification pending. Redirecting to verification page...',
+          toastLength: Toast.LENGTH_LONG,
+        );
+        if (mounted) context.go('/verify-email', extra: email);
+      } else {
+        Fluttertoast.showToast(msg: e.message, toastLength: Toast.LENGTH_LONG);
+      }
     } catch (e) {
-      Fluttertoast.showToast(msg: e.toString());
+      Fluttertoast.showToast(msg: e.toString(), toastLength: Toast.LENGTH_LONG);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -75,20 +92,40 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               const SizedBox(height: 16),
               TextField(
                 controller: _passwordController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Password',
-                  prefixIcon: Icon(Icons.lock_outline),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                 ),
-                obscureText: true,
+                obscureText: _obscurePassword,
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: _confirmPasswordController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   labelText: 'Confirm Password',
-                  prefixIcon: Icon(Icons.lock_outline),
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureConfirmPassword ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscureConfirmPassword = !_obscureConfirmPassword;
+                      });
+                    },
+                  ),
                 ),
-                obscureText: true,
+                obscureText: _obscureConfirmPassword,
               ),
               const SizedBox(height: 24),
               ElevatedButton(

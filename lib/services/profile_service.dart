@@ -26,14 +26,37 @@ class ProfileService extends SupabaseService {
   }
 
   Future<String> uploadLogo(String profileId, File file) async {
-    final fileName = 'logo_$profileId.${file.path.split('.').last}';
-    final path = await storage.from(AppConstants.logosBucket).upload(
-          fileName,
-          file,
-          fileOptions: const FileOptions(upsert: true),
-        );
-    
-    return storage.from(AppConstants.logosBucket).getPublicUrl(fileName);
+    try {
+      final fileName = 'logo_$profileId.${file.path.split('.').last}';
+      await storage.from(AppConstants.logosBucket).upload(
+            fileName,
+            file,
+            fileOptions: const FileOptions(upsert: true),
+          );
+      
+      return storage.from(AppConstants.logosBucket).getPublicUrl(fileName);
+    } on StorageException catch (e) {
+      throw 'Storage Error (${e.message}). Please ensure "logos" bucket has public INSERT policy enabled in Supabase.';
+    } catch (e) {
+      throw 'Failed to upload logo: $e';
+    }
+  }
+
+  Future<String> uploadSignature(String profileId, File file) async {
+    try {
+      final fileName = 'sig_$profileId.${file.path.split('.').last}';
+      await storage.from(AppConstants.signaturesBucket).upload(
+            fileName,
+            file,
+            fileOptions: const FileOptions(upsert: true),
+          );
+      
+      return storage.from(AppConstants.signaturesBucket).getPublicUrl(fileName);
+    } on StorageException catch (e) {
+      throw 'Storage Error (${e.message}). Please ensure "signatures" bucket has public INSERT policy enabled in Supabase.';
+    } catch (e) {
+      throw 'Failed to upload signature: $e';
+    }
   }
 
   Future<List<Profile>> getAllShops() async {

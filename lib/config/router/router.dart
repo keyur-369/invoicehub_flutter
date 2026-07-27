@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:invoicehub/screens/auth/login_screen.dart';
 import 'package:invoicehub/screens/auth/register_screen.dart';
+import 'package:invoicehub/screens/auth/verify_email_screen.dart';
 import 'package:invoicehub/screens/splash/splash_screen.dart';
 import 'package:invoicehub/screens/profile/complete_profile_screen.dart';
+import 'package:invoicehub/screens/profile/profile_settings_screen.dart';
 import 'package:invoicehub/screens/dashboard/dashboard_screen.dart';
 import 'package:invoicehub/screens/admin/admin_dashboard_screen.dart';
 
@@ -29,8 +31,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const RegisterScreen(),
       ),
       GoRoute(
+        path: '/verify-email',
+        builder: (context, state) {
+          final email = state.extra as String? ?? '';
+          return VerifyEmailScreen(email: email);
+        },
+      ),
+      GoRoute(
         path: '/complete-profile',
         builder: (context, state) => const CompleteProfileScreen(),
+      ),
+      GoRoute(
+        path: '/profile-settings',
+        builder: (context, state) => const ProfileSettingsScreen(),
       ),
       GoRoute(
         path: '/dashboard',
@@ -43,9 +56,12 @@ final routerProvider = Provider<GoRouter>((ref) {
     ],
     redirect: (context, state) {
       final loc = state.matchedLocation;
-      final loggingIn = loc == '/login' || loc == '/register';
+      final loggingIn = loc == '/login' || loc == '/register' || loc == '/verify-email';
       final atSplash = loc == '/';
       final atCompleteProfile = loc == '/complete-profile';
+      final atVerifyEmail = loc == '/verify-email';
+
+      if (atVerifyEmail) return null;
 
       // 1️⃣ Wait for Supabase auth to resolve
       if (authState.isLoading) return null;

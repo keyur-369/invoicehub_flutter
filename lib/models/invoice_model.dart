@@ -12,7 +12,7 @@ class Invoice {
   final String? notes;
   final String? pdfUrl;
   final DateTime createdAt;
-  
+
   final Customer? customer;
   final List<InvoiceItem>? items;
 
@@ -34,24 +34,32 @@ class Invoice {
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
     return Invoice(
-      id: json['id'],
-      shopId: json['shop_id'],
-      customerId: json['customer_id'],
-      invoiceNumber: json['invoice_number'],
-      invoiceDate: DateTime.parse(json['invoice_date']),
+      id: json['id']?.toString() ?? '',
+      shopId: json['shop_id']?.toString() ?? '',
+      customerId: json['customer_id']?.toString(),
+      invoiceNumber: json['invoice_number']?.toString() ?? '',
+      invoiceDate: json['invoice_date'] != null
+          ? DateTime.parse(json['invoice_date'])
+          : DateTime.now(),
       subtotal: (json['subtotal'] ?? 0.0).toDouble(),
       gstTotal: (json['gst_total'] ?? 0.0).toDouble(),
       grandTotal: (json['grand_total'] ?? 0.0).toDouble(),
       notes: json['notes'],
       pdfUrl: json['pdf_url'],
-      createdAt: DateTime.parse(json['created_at']),
-      customer: json['customers'] != null 
-          ? Customer.fromJson(json['customers']) 
+      createdAt: json['created_at'] != null
+          ? DateTime.parse(json['created_at'])
+          : DateTime.now(),
+      customer: json['customers'] != null
+          ? (json['customers'] is List
+                ? (json['customers'] as List).isNotEmpty
+                      ? Customer.fromJson(json['customers'][0])
+                      : null
+                : Customer.fromJson(json['customers']))
           : null,
       items: json['invoice_items'] != null
           ? (json['invoice_items'] as List)
-              .map((i) => InvoiceItem.fromJson(i))
-              .toList()
+                .map((i) => InvoiceItem.fromJson(i))
+                .toList()
           : null,
     );
   }
@@ -96,10 +104,10 @@ class InvoiceItem {
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
     return InvoiceItem(
-      id: json['id'],
-      invoiceId: json['invoice_id'],
-      productId: json['product_id'],
-      productName: json['product_name'],
+      id: json['id']?.toString() ?? '',
+      invoiceId: json['invoice_id']?.toString() ?? '',
+      productId: json['product_id']?.toString(),
+      productName: json['product_name']?.toString(),
       quantity: (json['quantity'] ?? 0.0).toDouble(),
       rate: (json['rate'] ?? 0.0).toDouble(),
       gstPercentage: (json['gst_percentage'] ?? 18.0).toDouble(),

@@ -5,6 +5,7 @@ import 'package:invoicehub/screens/customers/customers_screen.dart';
 import 'package:invoicehub/screens/products/products_screen.dart';
 import 'package:invoicehub/screens/invoice/invoice_history_screen.dart';
 import 'package:invoicehub/screens/profile/profile_settings_screen.dart';
+import 'package:invoicehub/providers/dashboard_provider.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -26,11 +27,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentIndex = ref.watch(dashboardIndexProvider);
+
     return Scaffold(
-      body: _tabs[_currentIndex],
+      body: _tabs[currentIndex],
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _currentIndex,
-        onDestinationSelected: (index) => setState(() => _currentIndex = index),
+        selectedIndex: currentIndex,
+        onDestinationSelected: (index) => ref.read(dashboardIndexProvider.notifier).state = index,
         destinations: const [
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'Customers'),

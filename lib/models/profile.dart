@@ -10,6 +10,7 @@ class Profile {
   final String? address;
   final String? city;
   final String? logoUrl;
+  final String? signatureUrl;
   final bool isProfileCompleted;
   final bool isActive;
   final DateTime createdAt;
@@ -27,6 +28,7 @@ class Profile {
     this.address,
     this.city,
     this.logoUrl,
+    this.signatureUrl,
     this.isProfileCompleted = false,
     this.isActive = true,
     required this.createdAt,
@@ -46,6 +48,7 @@ class Profile {
       address: json['address'],
       city: json['city'],
       logoUrl: json['logo_url'],
+      signatureUrl: json['signature_url'],
       isProfileCompleted: json['is_profile_completed'] ?? false,
       isActive: json['is_active'] ?? true,
       createdAt: DateTime.parse(json['created_at']),
@@ -66,6 +69,7 @@ class Profile {
       'address': address,
       'city': city,
       'logo_url': logoUrl,
+      'signature_url': signatureUrl,
       'is_profile_completed': isProfileCompleted,
       'is_active': isActive,
       'updated_at': DateTime.now().toIso8601String(),
@@ -81,6 +85,7 @@ class Profile {
     String? address,
     String? city,
     String? logoUrl,
+    String? signatureUrl,
     bool? isProfileCompleted,
     bool? isActive,
   }) {
@@ -96,6 +101,7 @@ class Profile {
       address: address ?? this.address,
       city: city ?? this.city,
       logoUrl: logoUrl ?? this.logoUrl,
+      signatureUrl: signatureUrl ?? this.signatureUrl,
       isProfileCompleted: isProfileCompleted ?? this.isProfileCompleted,
       isActive: isActive ?? this.isActive,
       createdAt: createdAt,

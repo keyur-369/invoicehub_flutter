@@ -60,3 +60,8 @@ class ProfileNotifier extends StateNotifier<AsyncValue<Profile?>> {
     }
   }
 }
+
+final allShopsProvider = FutureProvider<List<Profile>>((ref) async {
+  return ref.watch(profileServiceProvider).getAllShops();
+});
+

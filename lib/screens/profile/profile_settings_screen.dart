@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
+import 'package:go_router/go_router.dart';
 
 class ProfileSettingsScreen extends ConsumerWidget {
   const ProfileSettingsScreen({super.key});
@@ -25,7 +26,7 @@ class ProfileSettingsScreen extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.business),
             title: const Text('Edit Business Profile'),
-            onTap: () {},
+            onTap: () => context.push('/complete-profile'),
           ),
           ListTile(
             leading: const Icon(Icons.notifications_outlined),

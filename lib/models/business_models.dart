@@ -2,11 +2,12 @@ import 'package:invoicehub/models/product_models.dart';
 
 class MasterProduct {
   final String id;
-  final String categoryId;
-  final String brandId;
+  final String? categoryId;
+  final String? brandId;
   final String productName;
   final String? unit;
   final double defaultGstPercentage;
+  final String? imageUrl;
   final String? createdBy;
   final DateTime createdAt;
   
@@ -16,11 +17,12 @@ class MasterProduct {
 
   MasterProduct({
     required this.id,
-    required this.categoryId,
-    required this.brandId,
+    this.categoryId,
+    this.brandId,
     required this.productName,
     this.unit,
-    this.defaultGstPercentage = 18.0,
+    this.defaultGstPercentage = 0.0,
+    this.imageUrl,
     this.createdBy,
     required this.createdAt,
     this.category,
@@ -29,32 +31,51 @@ class MasterProduct {
 
   factory MasterProduct.fromJson(Map<String, dynamic> json) {
     return MasterProduct(
-      id: json['id'],
-      categoryId: json['category_id'],
-      brandId: json['brand_id'],
-      productName: json['product_name'],
+      id: json['id']?.toString() ?? '',
+      categoryId: json['category_id']?.toString(),
+      brandId: json['brand_id']?.toString(),
+      productName: json['product_name']?.toString() ?? 'Unnamed Product',
       unit: json['unit'],
-      defaultGstPercentage: (json['default_gst_percentage'] ?? 18.0).toDouble(),
+      defaultGstPercentage: (json['default_gst_percentage'] ?? 0.0).toDouble(),
+      imageUrl: json['image_url']?.toString(),
       createdBy: json['created_by'],
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at']) 
+          : DateTime.now(),
       category: json['product_categories'] != null 
-          ? ProductCategory.fromJson(json['product_categories']) 
+          ? (json['product_categories'] is List 
+              ? (json['product_categories'] as List).isNotEmpty 
+                  ? ProductCategory.fromJson(json['product_categories'][0])
+                  : null
+              : ProductCategory.fromJson(json['product_categories']))
           : null,
       brand: json['product_brands'] != null 
-          ? ProductBrand.fromJson(json['product_brands']) 
+          ? (json['product_brands'] is List 
+              ? (json['product_brands'] as List).isNotEmpty
+                  ? ProductBrand.fromJson(json['product_brands'][0])
+                  : null
+              : ProductBrand.fromJson(json['product_brands']))
           : null,
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {
-      'category_id': categoryId,
-      'brand_id': brandId,
+    final map = <String, dynamic>{
       'product_name': productName,
       'unit': unit,
       'default_gst_percentage': defaultGstPercentage,
       'created_by': createdBy,
     };
+    if (imageUrl != null && imageUrl!.isNotEmpty) {
+      map['image_url'] = imageUrl;
+    }
+    if (categoryId != null && categoryId!.isNotEmpty) {
+      map['category_id'] = categoryId;
+    }
+    if (brandId != null && brandId!.isNotEmpty) {
+      map['brand_id'] = brandId;
+    }
+    return map;
   }
 }
 
@@ -82,15 +103,21 @@ class ShopProduct {
 
   factory ShopProduct.fromJson(Map<String, dynamic> json) {
     return ShopProduct(
-      id: json['id'],
-      shopId: json['shop_id'],
-      productId: json['product_id'],
+      id: json['id']?.toString() ?? '',
+      shopId: json['shop_id']?.toString() ?? '',
+      productId: json['product_id']?.toString() ?? '',
       customRate: (json['custom_rate'] ?? 0.0).toDouble(),
       gstPercentage: (json['gst_percentage'] ?? 18.0).toDouble(),
       isActive: json['is_active'] ?? true,
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at']) 
+          : DateTime.now(),
       product: json['master_products'] != null 
-          ? MasterProduct.fromJson(json['master_products']) 
+          ? (json['master_products'] is List 
+              ? (json['master_products'] as List).isNotEmpty
+                  ? MasterProduct.fromJson(json['master_products'][0])
+                  : null
+              : MasterProduct.fromJson(json['master_products']))
           : null,
     );
   }
@@ -119,14 +146,16 @@ class Customer {
 
   factory Customer.fromJson(Map<String, dynamic> json) {
     return Customer(
-      id: json['id'],
-      shopId: json['shop_id'],
-      customerName: json['customer_name'],
+      id: json['id']?.toString() ?? '',
+      shopId: json['shop_id']?.toString() ?? '',
+      customerName: json['customer_name']?.toString() ?? 'Unnamed Customer',
       mobile: json['mobile'],
       gstNumber: json['gst_number'],
       address: json['address'],
       city: json['city'],
-      createdAt: DateTime.parse(json['created_at']),
+      createdAt: json['created_at'] != null 
+          ? DateTime.parse(json['created_at']) 
+          : DateTime.now(),
     );
   }
 

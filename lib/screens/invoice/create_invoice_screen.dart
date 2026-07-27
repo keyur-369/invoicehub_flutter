@@ -8,6 +8,7 @@ import 'package:invoicehub/repositories/business_repository.dart';
 import 'package:invoicehub/screens/invoice/invoice_preview_screen.dart';
 import 'package:flutter_typeahead/flutter_typeahead.dart';
 import 'package:invoicehub/providers/invoice_provider.dart';
+import 'package:invoicehub/providers/product_provider.dart';
 import 'package:uuid/uuid.dart';
 
 
@@ -43,7 +44,7 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
         invoiceId: '',
         quantity: 1,
         rate: 0,
-        gstPercentage: 18,
+        gstPercentage: 0,
       ));
     });
   }
@@ -448,8 +449,8 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
   /// Opens a modal bottom sheet with a search field for products.
   /// This avoids the TypeAheadField gesture conflict with the parent SingleChildScrollView.
   Future<void> _showProductPickerSheet(int index) async {
-    List<MasterProduct> allProducts = [];
-    List<MasterProduct> filtered = [];
+    List<ShopProduct> allProducts = [];
+    List<ShopProduct> filtered = [];
     bool isLoading = true;
 
     await showModalBottomSheet(
@@ -462,7 +463,7 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
           builder: (ctx, setSheetState) {
             // Load products once
             if (isLoading) {
-              ref.read(businessRepoProvider).getMasterProducts().then((products) {
+              ref.read(unifiedProductsProvider.future).then((products) {
                 setSheetState(() {
                   allProducts = products;
                   filtered = products;
@@ -505,7 +506,7 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
                       onChanged: (val) {
                         setSheetState(() {
                           filtered = allProducts
-                              .where((p) => p.productName.toLowerCase().contains(val.toLowerCase()))
+                              .where((p) => p.product?.productName.toLowerCase().contains(val.toLowerCase()) ?? false)
                               .toList();
                         });
                       },
@@ -521,7 +522,10 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
                                   itemCount: filtered.length,
                                   separatorBuilder: (_, __) => const Divider(height: 1),
                                   itemBuilder: (_, i) {
-                                    final product = filtered[i];
+                                    final shopProduct = filtered[i];
+                                    final product = shopProduct.product;
+                                    if (product == null) return const SizedBox.shrink();
+
                                     return ListTile(
                                       leading: CircleAvatar(
                                         backgroundColor: Colors.blue.shade50,
@@ -532,9 +536,12 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
                                       ),
                                       title: Text(product.productName, style: const TextStyle(fontWeight: FontWeight.w500)),
                                       subtitle: Text(
-                                        '${product.brand?.brandName ?? ''} • ${product.category?.categoryName ?? ''} • GST ${product.defaultGstPercentage.toStringAsFixed(0)}%',
+                                        '${product.brand?.brandName ?? ''} • ${product.category?.categoryName ?? ''} • GST ${shopProduct.gstPercentage.toStringAsFixed(0)}%',
                                         style: const TextStyle(fontSize: 12),
                                       ),
+                                      trailing: shopProduct.customRate > 0 
+                                        ? Text('₹${shopProduct.customRate}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold))
+                                        : null,
                                       onTap: () {
                                         setState(() {
                                           _items[index] = InvoiceItem(
@@ -542,8 +549,8 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
                                             invoiceId: '',
                                             productName: product.productName,
                                             quantity: _items[index].quantity,
-                                            rate: _items[index].rate,
-                                            gstPercentage: product.defaultGstPercentage,
+                                            rate: shopProduct.customRate,
+                                            gstPercentage: shopProduct.gstPercentage,
                                           );
                                           _calculateTotals();
                                         });
@@ -570,170 +577,20 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
       itemCount: _items.length,
       separatorBuilder: (_, __) => const SizedBox(height: 12),
       itemBuilder: (context, index) {
-        return _buildItemRow(index);
+        final item = _items[index];
+        return _ItemRowWidget(
+          key: ValueKey(item.id),
+          item: item,
+          onPickProduct: () => _showProductPickerSheet(index),
+          onDelete: () => _removeItem(index),
+          onChanged: (updatedItem) {
+            setState(() {
+              _items[index] = updatedItem;
+              _calculateTotals();
+            });
+          },
+        );
       },
-    );
-  }
-
-  Widget _buildItemRow(int index) {
-    final selectedProductName = _items[index].productName;
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(side: BorderSide(color: Colors.grey.shade300), borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(12.0),
-        child: Column(
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: InkWell(
-                    onTap: () => _showProductPickerSheet(index),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      decoration: BoxDecoration(
-                        border: Border(bottom: BorderSide(color: Colors.grey.shade400)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.search, size: 18, color: Colors.grey),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              selectedProductName ?? 'Tap to search product',
-                              style: TextStyle(
-                                color: selectedProductName != null ? Colors.black87 : Colors.grey,
-                                fontSize: 14,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          if (selectedProductName != null)
-                            GestureDetector(
-                              onTap: () => setState(() {
-                                _items[index] = InvoiceItem(
-                                  id: _items[index].id,
-                                  invoiceId: '',
-                                  quantity: _items[index].quantity,
-                                  rate: _items[index].rate,
-                                  gstPercentage: _items[index].gstPercentage,
-                                );
-                                _calculateTotals();
-                              }),
-                              child: const Icon(Icons.close, size: 16, color: Colors.grey),
-                            ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                IconButton(onPressed: () => _removeItem(index), icon: const Icon(Icons.delete_outline, color: Colors.red)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    decoration: const InputDecoration(labelText: 'Qty', isDense: true),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) {
-                      final qty = double.tryParse(v) ?? 0;
-                      setState(() {
-                        _items[index] = InvoiceItem(
-                          id: _items[index].id,
-                          invoiceId: '',
-                          productName: _items[index].productName,
-                          quantity: qty,
-                          rate: _items[index].rate,
-                          gstPercentage: _items[index].gstPercentage,
-                        );
-                        _calculateTotals();
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: TextField(
-                    decoration: const InputDecoration(labelText: 'Rate', isDense: true),
-                    keyboardType: TextInputType.number,
-                    onChanged: (v) {
-                      final rate = double.tryParse(v) ?? 0;
-                      setState(() {
-                        _items[index] = InvoiceItem(
-                          id: _items[index].id,
-                          invoiceId: '',
-                          productName: _items[index].productName,
-                          quantity: _items[index].quantity,
-                          rate: rate,
-                          gstPercentage: _items[index].gstPercentage,
-                        );
-                        _calculateTotals();
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // GST % — auto-fetched from product (set by admin), read-only
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'GST %',
-                        style: TextStyle(fontSize: 11, color: Colors.black54),
-                      ),
-                      const SizedBox(height: 4),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _items[index].productName != null
-                              ? Colors.indigo.shade50
-                              : Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(6),
-                          border: Border.all(
-                            color: _items[index].productName != null
-                                ? Colors.indigo.shade200
-                                : Colors.grey.shade300,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.lock_outline,
-                              size: 12,
-                              color: _items[index].productName != null
-                                  ? Colors.indigo.shade400
-                                  : Colors.grey,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              _items[index].productName != null
-                                  ? '${_items[index].gstPercentage.toStringAsFixed(0)}%'
-                                  : '--',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: _items[index].productName != null
-                                    ? Colors.indigo.shade700
-                                    : Colors.grey,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -764,6 +621,197 @@ class _CreateInvoiceScreenState extends ConsumerState<CreateInvoiceScreen> {
           Text(label, style: TextStyle(color: Colors.white, fontSize: isBold ? 18 : 14, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
           Text(value, style: TextStyle(color: Colors.white, fontSize: isBold ? 22 : 16, fontWeight: isBold ? FontWeight.bold : FontWeight.normal)),
         ],
+      ),
+    );
+  }
+}
+
+class _ItemRowWidget extends StatefulWidget {
+  final InvoiceItem item;
+  final VoidCallback onPickProduct;
+  final VoidCallback onDelete;
+  final ValueChanged<InvoiceItem> onChanged;
+
+  const _ItemRowWidget({
+    super.key,
+    required this.item,
+    required this.onPickProduct,
+    required this.onDelete,
+    required this.onChanged,
+  });
+
+  @override
+  State<_ItemRowWidget> createState() => _ItemRowWidgetState();
+}
+
+class _ItemRowWidgetState extends State<_ItemRowWidget> {
+  late TextEditingController _qtyController;
+  late TextEditingController _rateController;
+  late TextEditingController _gstController;
+
+  @override
+  void initState() {
+    super.initState();
+    _qtyController = TextEditingController(
+      text: widget.item.quantity > 0
+          ? (widget.item.quantity % 1 == 0 ? widget.item.quantity.toInt().toString() : widget.item.quantity.toString())
+          : '1',
+    );
+    _rateController = TextEditingController(
+      text: widget.item.rate > 0
+          ? (widget.item.rate % 1 == 0 ? widget.item.rate.toInt().toString() : widget.item.rate.toString())
+          : '',
+    );
+    _gstController = TextEditingController(
+      text: widget.item.gstPercentage > 0
+          ? (widget.item.gstPercentage % 1 == 0 ? widget.item.gstPercentage.toInt().toString() : widget.item.gstPercentage.toString())
+          : '0',
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _ItemRowWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (double.tryParse(_qtyController.text) != widget.item.quantity) {
+      _qtyController.text = widget.item.quantity > 0
+          ? (widget.item.quantity % 1 == 0 ? widget.item.quantity.toInt().toString() : widget.item.quantity.toString())
+          : '1';
+    }
+    if (double.tryParse(_rateController.text) != widget.item.rate) {
+      _rateController.text = widget.item.rate > 0
+          ? (widget.item.rate % 1 == 0 ? widget.item.rate.toInt().toString() : widget.item.rate.toString())
+          : '';
+    }
+    if (double.tryParse(_gstController.text) != widget.item.gstPercentage) {
+      _gstController.text = widget.item.gstPercentage > 0
+          ? (widget.item.gstPercentage % 1 == 0 ? widget.item.gstPercentage.toInt().toString() : widget.item.gstPercentage.toString())
+          : '0';
+    }
+  }
+
+  @override
+  void dispose() {
+    _qtyController.dispose();
+    _rateController.dispose();
+    _gstController.dispose();
+    super.dispose();
+  }
+
+  void _notifyChange() {
+    final qty = double.tryParse(_qtyController.text) ?? 1.0;
+    final rate = double.tryParse(_rateController.text) ?? 0.0;
+    final gst = double.tryParse(_gstController.text) ?? 0.0;
+
+    widget.onChanged(
+      InvoiceItem(
+        id: widget.item.id,
+        invoiceId: widget.item.invoiceId,
+        productName: widget.item.productName,
+        quantity: qty,
+        rate: rate,
+        gstPercentage: gst,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final selectedProductName = widget.item.productName;
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: InkWell(
+                    onTap: widget.onPickProduct,
+                    borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: Colors.grey.shade400)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.search, size: 18, color: Colors.grey),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              selectedProductName ?? 'Tap to search product',
+                              style: TextStyle(
+                                color: selectedProductName != null ? Colors.black87 : Colors.grey,
+                                fontSize: 14,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (selectedProductName != null)
+                            GestureDetector(
+                              onTap: () {
+                                widget.onChanged(
+                                  InvoiceItem(
+                                    id: widget.item.id,
+                                    invoiceId: '',
+                                    productName: null,
+                                    quantity: 1,
+                                    rate: 0,
+                                    gstPercentage: 0,
+                                  ),
+                                );
+                              },
+                              child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: widget.onDelete,
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _qtyController,
+                    decoration: const InputDecoration(labelText: 'Qty', isDense: true, border: OutlineInputBorder()),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => _notifyChange(),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _rateController,
+                    decoration: const InputDecoration(labelText: 'Rate (₹)', isDense: true, border: OutlineInputBorder()),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => _notifyChange(),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextField(
+                    controller: _gstController,
+                    decoration: const InputDecoration(labelText: 'GST %', isDense: true, border: OutlineInputBorder()),
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    onChanged: (_) => _notifyChange(),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

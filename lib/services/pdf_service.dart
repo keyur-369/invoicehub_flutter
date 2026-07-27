@@ -39,25 +39,54 @@ class PdfService {
   }
 
   static pw.Widget _buildHeader(Profile shop, Invoice invoice) {
-    return pw.Row(
-      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+    return pw.Column(
       children: [
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Text(shop.shopName ?? 'My Shop', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-            pw.Text(shop.address ?? ''),
-            pw.Text('GSTIN: ${shop.gstNumber ?? 'N/A'}'),
-            pw.Text('Phone: ${shop.mobile ?? ''}'),
-          ],
+        pw.Center(
+          child: pw.Text(
+            '|| Jay Swaminarayan ||',
+            style: pw.TextStyle(
+              fontSize: 10,
+              fontWeight: pw.FontWeight.bold,
+              color: PdfColors.white,
+            ),
+          ),
         ),
-        pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.end,
+        pw.SizedBox(height: 10),
+        pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
           children: [
-            pw.Text('TAX INVOICE', style: pw.TextStyle(fontSize: 30, color: PdfColors.blue900, fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 10),
-            pw.Text('Invoice No: ${invoice.invoiceNumber}'),
-            pw.Text('Date: ${DateFormat('dd-MM-yyyy').format(invoice.invoiceDate)}'),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(shop.shopName ?? 'My Shop', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+                pw.Text(shop.address ?? ''),
+                if (shop.gstNumber != null)
+                  pw.Padding(
+                    padding: const pw.EdgeInsets.only(top: 5),
+                    child: pw.Text(
+                      'GSTIN: ${shop.gstNumber}',
+                      style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+                    ),
+                  ),
+              ],
+            ),
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.end,
+              children: [
+                pw.Text('TAX INVOICE', style: pw.TextStyle(fontSize: 30, color: PdfColors.blue900, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 10),
+                pw.Text('Invoice No: ${invoice.invoiceNumber}'),
+                pw.Text('Date: ${DateFormat('dd-MM-yyyy').format(invoice.invoiceDate)}'),
+                if (shop.mobile != null) ...[
+                  pw.SizedBox(height: 5),
+                  pw.Text('Phone: ${shop.mobile}'),
+                ],
+                if (shop.ownerName != null) ...[
+                  pw.SizedBox(height: 2),
+                  pw.Text('Owner: ${shop.ownerName}', style: pw.TextStyle(fontSize: 10, fontStyle: pw.FontStyle.italic)),
+                ],
+              ],
+            ),
           ],
         ),
       ],

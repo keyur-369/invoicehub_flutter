@@ -4,6 +4,11 @@ import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:invoicehub/screens/invoice/create_invoice_screen.dart';
 import 'package:invoicehub/providers/invoice_provider.dart';
+import 'package:invoicehub/providers/dashboard_provider.dart';
+import 'package:invoicehub/repositories/business_repository.dart';
+import 'package:invoicehub/models/business_models.dart';
+import 'package:invoicehub/providers/product_provider.dart';
+import 'package:invoicehub/screens/products/products_screen.dart';
 
 class HomeTab extends ConsumerWidget {
   const HomeTab({super.key});
@@ -64,10 +69,18 @@ class HomeTab extends ConsumerWidget {
               mainAxisSpacing: 16,
               childAspectRatio: 1.5,
               children: [
-                _buildActionCard(context, Icons.person_add_alt_1, 'Add Customer', Colors.orange),
-                _buildActionCard(context, Icons.add_business, 'Add Product', Colors.green),
-                _buildActionCard(context, Icons.receipt, 'Recent Invoices', Colors.blue),
-                _buildActionCard(context, Icons.analytics, 'Reports', Colors.purple),
+                _buildActionCard(context, Icons.person_add_alt_1, 'Add Customer', Colors.orange, onTap: () {
+                  if (profile != null) _showAddCustomerDialog(context, ref, profile.id);
+                }),
+                _buildActionCard(context, Icons.inventory_2, 'Show Products', Colors.green, onTap: () {
+                  ref.read(dashboardIndexProvider.notifier).state = 2; // Products tab
+                }),
+                _buildActionCard(context, Icons.receipt, 'Recent Invoices', Colors.blue, onTap: () {
+                  ref.read(dashboardIndexProvider.notifier).state = 3; // History tab
+                }),
+                _buildActionCard(context, Icons.analytics, 'Reports', Colors.purple, onTap: () {
+                  _showReportsSummary(context, ref);
+                }),
               ],
             ),
           ],
@@ -131,9 +144,107 @@ class HomeTab extends ConsumerWidget {
     );
   }
 
-  Widget _buildActionCard(BuildContext context, IconData icon, String title, Color color) {
+  void _showAddCustomerDialog(BuildContext context, WidgetRef ref, String shopId) {
+    final nameController = TextEditingController();
+    final mobileController = TextEditingController();
+    final cityController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add New Customer'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(controller: nameController, decoration: const InputDecoration(labelText: 'Customer Name')),
+            TextField(controller: mobileController, decoration: const InputDecoration(labelText: 'Mobile')),
+            TextField(controller: cityController, decoration: const InputDecoration(labelText: 'City')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              if (nameController.text.isEmpty) return;
+              final customer = Customer(
+                id: '', 
+                shopId: shopId,
+                customerName: nameController.text.trim(),
+                mobile: mobileController.text.trim(),
+                city: cityController.text.trim(),
+                createdAt: DateTime.now(),
+              );
+              await ref.read(businessRepoProvider).addCustomer(customer);
+              if (ctx.mounted) {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Customer added!')));
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReportsSummary(BuildContext context, WidgetRef ref) {
+    final invoicesAsync = ref.watch(invoicesProvider);
+    
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Business Report', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            invoicesAsync.when(
+              data: (invoices) {
+                final totalSales = invoices.fold<double>(0, (sum, i) => sum + i.grandTotal);
+                final totalGst = invoices.fold<double>(0, (sum, i) => sum + i.gstTotal);
+                return Column(
+                  children: [
+                    _reportRow('Total Invoices', '${invoices.length}'),
+                    _reportRow('Total Sales Amount', '₹${totalSales.toStringAsFixed(2)}'),
+                    _reportRow('GST Collected', '₹${totalGst.toStringAsFixed(2)}'),
+                  ],
+                );
+              },
+              loading: () => const CircularProgressIndicator(),
+              error: (e, _) => Text('Error: $e'),
+            ),
+            const SizedBox(height: 20),
+            Center(
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _reportRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: const TextStyle(color: Colors.grey)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionCard(BuildContext context, IconData icon, String title, Color color, {VoidCallback? onTap}) {
     return InkWell(
-      onTap: () {},
+      onTap: onTap,
       borderRadius: BorderRadius.circular(16),
       child: Container(
         padding: const EdgeInsets.all(16),

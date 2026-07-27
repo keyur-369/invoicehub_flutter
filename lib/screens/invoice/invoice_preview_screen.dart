@@ -220,97 +220,130 @@ class _InvoiceCard extends StatelessWidget {
                 topRight: Radius.circular(4),
               ),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        shopProfile.shopName ?? 'Your Business',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      if (shopProfile.address != null)
-                        Text(
-                          shopProfile.address!,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                          ),
-                        ),
-                      if (shopProfile.city != null)
-                        Text(
-                          shopProfile.city!,
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                          ),
-                        ),
-                      if (shopProfile.mobile != null)
-                        Text(
-                          '📞 ${shopProfile.mobile}',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 11,
-                          ),
-                        ),
-                      if (shopProfile.gstNumber != null)
-                        Text(
-                          'GSTIN: ${shopProfile.gstNumber}',
-                          style: const TextStyle(
-                            color: Colors.white60,
-                            fontSize: 11,
-                          ),
-                        ),
-                    ],
+                const Text(
+                  '|| Jay Swaminarayan ||',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 1.5,
                   ),
                 ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
+                const SizedBox(height: 12),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            shopProfile.shopName ?? 'Your Business',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          if (shopProfile.address != null)
+                            Text(
+                              shopProfile.address!,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          if (shopProfile.city != null)
+                            Text(
+                              shopProfile.city!,
+                              style: const TextStyle(
+                                color: Colors.white70,
+                                fontSize: 11,
+                              ),
+                            ),
+                          if (shopProfile.gstNumber != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(
+                                'GSTIN: ${shopProfile.gstNumber}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: Colors.white38),
-                      ),
-                      child: const Text(
-                        'TAX INVOICE',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.white38),
+                          ),
+                          child: const Text(
+                            'TAX INVOICE',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      invoiceNumber,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      DateFormat('dd MMM yyyy').format(invoiceDate),
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                      ),
+                        const SizedBox(height: 8),
+                        Text(
+                          invoiceNumber,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          DateFormat('dd MMM yyyy').format(invoiceDate),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (shopProfile.mobile != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            '📞 ${shopProfile.mobile}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                        if (shopProfile.ownerName != null) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            'Owner: ${shopProfile.ownerName}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 10,
+                              fontStyle: FontStyle.italic,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
@@ -666,8 +699,21 @@ class _InvoiceCard extends StatelessWidget {
                             color: Colors.black45,
                           ),
                         ),
-                        const SizedBox(height: 20),
-                        Container(width: 100, height: 1, color: Colors.black26),
+                        if (shopProfile.signatureUrl != null)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 4),
+                            child: Image.network(
+                              shopProfile.signatureUrl!,
+                              height: 45,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  const SizedBox(height: 45),
+                            ),
+                          )
+                        else
+                          const SizedBox(height: 45),
+                        Container(width: 120, height: 1, color: Colors.black26),
+                        const SizedBox(height: 4),
                         const Text(
                           'Authorised Signatory',
                           style: TextStyle(fontSize: 9, color: Colors.black38),
