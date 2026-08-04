@@ -1,0 +1,4 @@
+storePassword=keyur@2003
+keyPassword=keyur@2003
+keyAlias=upload
+storeFile=upload-keystore.jks
