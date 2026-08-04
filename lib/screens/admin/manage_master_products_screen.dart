@@ -374,7 +374,12 @@ class _ManageMasterProductsScreenState extends ConsumerState<ManageMasterProduct
           children: [
             Icon(Icons.help_outline, color: Colors.blue),
             SizedBox(width: 8),
-            Text('CSV Format Guidelines'),
+            Expanded(
+              child: Text(
+                'CSV Format Guidelines',
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ],
         ),
         content: const SingleChildScrollView(

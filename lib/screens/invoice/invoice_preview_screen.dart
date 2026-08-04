@@ -1,13 +1,14 @@
-import 'dart:ui' as ui;
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
-import 'package:pdf/widgets.dart' as pw;
 import 'package:invoicehub/models/business_models.dart';
 import 'package:invoicehub/models/invoice_model.dart';
 import 'package:invoicehub/models/profile.dart';
+import 'package:invoicehub/services/pdf_service.dart';
 
 class InvoicePreviewScreen extends StatefulWidget {
   final String invoiceNumber;
@@ -36,46 +37,59 @@ class InvoicePreviewScreen extends StatefulWidget {
 }
 
 class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
-  final GlobalKey _invoiceKey = GlobalKey();
   bool _isGenerating = false;
+
+  /// Downloads a network image (e.g. the shop's saved signature) as bytes so
+  /// it can be embedded directly into the PDF as a real image object.
+  Future<Uint8List?> _fetchImageBytes(String url) async {
+    try {
+      final client = HttpClient();
+      final request = await client.getUrl(Uri.parse(url));
+      final response = await request.close();
+      final bytes = await consolidateHttpClientResponseBytes(response);
+      client.close();
+      return bytes;
+    } catch (_) {
+      return null;
+    }
+  }
 
   Future<void> _generateAndSharePdf() async {
     setState(() => _isGenerating = true);
     try {
-      // Give Flutter a frame to render before capturing
-      await Future.delayed(const Duration(milliseconds: 100));
-
-      final boundary =
-          _invoiceKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
-      if (boundary == null) return;
-
-      // Capture widget at 3x for sharp print quality
-      final image = await boundary.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
-      final pngBytes = byteData.buffer.asUint8List();
-
-      // Embed captured image into a PDF page
-      final pdf = pw.Document();
-      final pdfImage = pw.MemoryImage(pngBytes);
-
-      // Scale to A4: image width/height ratio preserved
-      final imgW = image.width.toDouble();
-      final imgH = image.height.toDouble();
-      final a4W = PdfPageFormat.a4.width;
-      final a4H = a4W * imgH / imgW;
-
-      pdf.addPage(
-        pw.Page(
-          pageFormat: PdfPageFormat(a4W, a4H, marginAll: 0),
-          build: (_) => pw.Image(pdfImage, fit: pw.BoxFit.fill),
-        ),
+      final invoice = Invoice(
+        id: '',
+        shopId: widget.shopProfile.id,
+        invoiceNumber: widget.invoiceNumber,
+        invoiceDate: widget.invoiceDate,
+        subtotal: widget.subtotal,
+        gstTotal: widget.gstTotal,
+        grandTotal: widget.grandTotal,
+        createdAt: DateTime.now(),
       );
 
-      await Printing.sharePdf(
-        bytes: await pdf.save(),
-        filename: '${widget.invoiceNumber}.pdf',
+      Uint8List? signatureBytes;
+      if (widget.shopProfile.signatureUrl != null) {
+        signatureBytes = await _fetchImageBytes(
+          widget.shopProfile.signatureUrl!,
+        );
+      }
+
+      // Printing.layoutPdf opens the native print/share sheet and re-builds
+      // the PDF for whatever page format that sheet actually needs (A4,
+      // Letter, a specific printer's paper size, etc.) — this is what
+      // guarantees a properly sized, professional, print-ready document
+      // instead of a stretched screenshot of the phone UI.
+      await Printing.layoutPdf(
+        name: '${widget.invoiceNumber}.pdf',
+        onLayout: (PdfPageFormat format) => PdfService.generateInvoicePdf(
+          shop: widget.shopProfile,
+          customer: widget.customer,
+          invoice: invoice,
+          items: widget.items,
+          signatureBytes: signatureBytes,
+          format: format,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isGenerating = false);
@@ -104,61 +118,32 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
               : IconButton(
                   icon: const Icon(Icons.share_outlined),
                   onPressed: _generateAndSharePdf,
-                  tooltip: 'Share PDF',
+                  tooltip: 'Print / Share PDF',
                 ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
-        child: Column(
-          children: [
-            // RepaintBoundary wraps the card so we can screenshot it
-            RepaintBoundary(
-              key: _invoiceKey,
-              child: _InvoiceCard(
-                invoiceNumber: widget.invoiceNumber,
-                invoiceDate: widget.invoiceDate,
-                customer: widget.customer,
-                items: widget.items,
-                subtotal: widget.subtotal,
-                gstTotal: widget.gstTotal,
-                grandTotal: widget.grandTotal,
-                shopProfile: widget.shopProfile,
-              ),
-            ),
-            const SizedBox(height: 100),
-          ],
-        ),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: SizedBox(
-          width: double.infinity,
-          child: FloatingActionButton.extended(
-            onPressed: _isGenerating ? null : _generateAndSharePdf,
-            backgroundColor: Colors.indigo.shade700,
-            elevation: 8,
-            icon: _isGenerating
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Icon(Icons.picture_as_pdf, color: Colors.white),
-            label: Text(
-              _isGenerating ? 'Generating...' : 'Download & Share PDF',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+      body: PdfPreview(
+        build: (format) => PdfService.generateInvoicePdf(
+          shop: widget.shopProfile,
+          customer: widget.customer,
+          invoice: Invoice(
+            id: '',
+            shopId: widget.shopProfile.id,
+            invoiceNumber: widget.invoiceNumber,
+            invoiceDate: widget.invoiceDate,
+            subtotal: widget.subtotal,
+            gstTotal: widget.gstTotal,
+            grandTotal: widget.grandTotal,
+            createdAt: DateTime.now(),
           ),
+          items: widget.items,
+          format: format,
         ),
+        allowPrinting: true,
+        allowSharing: true,
+        canChangePageFormat: false,
+        canChangeOrientation: false,
+        pdfFileName: '${widget.invoiceNumber}.pdf',
       ),
     );
   }

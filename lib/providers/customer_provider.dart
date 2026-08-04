@@ -5,6 +5,10 @@ import 'package:invoicehub/providers/auth_provider.dart';
 
 final customersProvider = FutureProvider<List<Customer>>((ref) async {
   final profile = ref.watch(profileProvider).value;
-  if (profile == null) return [];
-  return ref.watch(businessRepoProvider).getCustomers(profile.id);
+  final currentUser = ref.watch(currentUserProvider);
+
+  final shopId = profile?.id ?? currentUser?.id ?? '';
+  if (shopId.isEmpty) return [];
+
+  return ref.read(businessRepoProvider).getCustomers(shopId);
 });

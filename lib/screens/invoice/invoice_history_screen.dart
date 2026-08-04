@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:invoicehub/models/invoice_model.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:invoicehub/providers/invoice_provider.dart';
 import 'package:invoicehub/repositories/business_repository.dart';
 import 'package:invoicehub/screens/invoice/invoice_preview_screen.dart';
+import 'package:invoicehub/widgets/app_colors.dart';
 
 class InvoiceHistoryScreen extends ConsumerWidget {
-  const InvoiceHistoryScreen({super.key});
+  final VoidCallback? onOpenDrawer;
+  const InvoiceHistoryScreen({super.key, this.onOpenDrawer});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -17,6 +20,19 @@ class InvoiceHistoryScreen extends ConsumerWidget {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
       appBar: AppBar(
+        leading: Builder(
+          builder: (scaffoldCtx) => IconButton(
+            icon: const Icon(Icons.menu_rounded, size: 28),
+            tooltip: 'Open Menu',
+            onPressed: () {
+              if (onOpenDrawer != null) {
+                onOpenDrawer!();
+              } else {
+                Scaffold.of(scaffoldCtx).openDrawer();
+              }
+            },
+          ),
+        ),
         title: const Text(
           'Invoice History',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -46,7 +62,7 @@ class InvoiceHistoryScreen extends ConsumerWidget {
           final currency = NumberFormat.currency(locale: 'en_IN', symbol: '₹');
 
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 90),
             itemCount: invoices.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
@@ -59,6 +75,7 @@ class InvoiceHistoryScreen extends ConsumerWidget {
                 ),
                 child: InkWell(
                   onTap: () => _viewInvoicePdf(context, ref, invoice.id),
+                  onLongPress: () => _showInvoiceOptionsSheet(context, ref, invoice),
                   borderRadius: BorderRadius.circular(12),
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -232,5 +249,110 @@ class InvoiceHistoryScreen extends ConsumerWidget {
         );
       }
     }
+  }
+
+  void _showInvoiceOptionsSheet(BuildContext context, WidgetRef ref, Invoice invoice) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.receipt_long, color: AppColors.primary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        invoice.invoiceNumber,
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                      ),
+                      Text(
+                        'Customer: ${invoice.customer?.customerName ?? "Walk-in Customer"}',
+                        style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.picture_as_pdf_outlined, color: Colors.blue),
+              title: const Text('View & Print PDF', style: TextStyle(fontWeight: FontWeight.w600)),
+              subtitle: const Text('Open printable invoice document'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _viewInvoicePdf(context, ref, invoice.id);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline, color: Colors.red),
+              title: const Text('Delete Invoice', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600)),
+              subtitle: const Text('Permanently remove this invoice record'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _showDeleteInvoiceConfirmation(context, ref, invoice);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeleteInvoiceConfirmation(BuildContext context, WidgetRef ref, Invoice invoice) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Delete Invoice'),
+        content: Text('Are you sure you want to delete invoice "${invoice.invoiceNumber}"?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await ref.read(businessRepoProvider).deleteInvoice(invoice.id);
+                ref.invalidate(invoicesProvider);
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Invoice ${invoice.invoiceNumber} deleted successfully'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error deleting invoice: $e'), backgroundColor: Colors.red),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
   }
 }

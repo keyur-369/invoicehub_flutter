@@ -9,7 +9,6 @@ import 'package:invoicehub/screens/splash/splash_screen.dart';
 import 'package:invoicehub/screens/profile/complete_profile_screen.dart';
 import 'package:invoicehub/screens/profile/profile_settings_screen.dart';
 import 'package:invoicehub/screens/dashboard/dashboard_screen.dart';
-import 'package:invoicehub/screens/admin/admin_dashboard_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
@@ -49,10 +48,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/dashboard',
         builder: (context, state) => const DashboardScreen(),
       ),
-      GoRoute(
-        path: '/admin',
-        builder: (context, state) => const AdminDashboardScreen(),
-      ),
     ],
     redirect: (context, state) {
       final loc = state.matchedLocation;
@@ -80,26 +75,7 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final profile = profileAsync.value;
 
-      // Helper: is this user an admin?
-      String resolvedRole = 'shop_owner';
-      if (profile != null) {
-        resolvedRole = profile.role.toLowerCase();
-      } else {
-        // Fallback: check userMetadata in case profile row doesn't exist in DB
-        final meta = user.userMetadata ?? {};
-        resolvedRole = (meta['role'] ?? 'shop_owner').toString().toLowerCase();
-      }
-      final isAdmin = resolvedRole == 'admin' ||
-          resolvedRole == 'super_admin' ||
-          resolvedRole == 'superadmin';
-
-      // 4️⃣ Admin — always go to /admin, never show complete-profile
-      if (isAdmin) {
-        if (loggingIn || atSplash || atCompleteProfile) return '/admin';
-        return null;
-      }
-
-      // 5️⃣ Shop owner — check profile completion
+      // 4️⃣ Shop owner — check profile completion
       if (profile == null || !profile.isProfileCompleted) {
         return atCompleteProfile ? null : '/complete-profile';
       }
@@ -110,3 +86,4 @@ final routerProvider = Provider<GoRouter>((ref) {
     },
   );
 });
+

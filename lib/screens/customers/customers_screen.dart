@@ -4,17 +4,34 @@ import 'package:invoicehub/models/business_models.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:invoicehub/providers/customer_provider.dart';
 import 'package:invoicehub/repositories/business_repository.dart';
+import 'package:invoicehub/widgets/add_customer_dialog.dart';
 
 class CustomersScreen extends ConsumerWidget {
-  const CustomersScreen({super.key});
+  final VoidCallback? onOpenDrawer;
+  const CustomersScreen({super.key, this.onOpenDrawer});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider).value;
     final customersAsync = ref.watch(customersProvider);
     
+    final shopId = profile?.id;
+
     return Scaffold(
       appBar: AppBar(
+        leading: Builder(
+          builder: (scaffoldCtx) => IconButton(
+            icon: const Icon(Icons.menu_rounded, size: 28),
+            tooltip: 'Open Menu',
+            onPressed: () {
+              if (onOpenDrawer != null) {
+                onOpenDrawer!();
+              } else {
+                Scaffold.of(scaffoldCtx).openDrawer();
+              }
+            },
+          ),
+        ),
         title: const Text('Customers'),
         elevation: 0,
       ),
@@ -27,14 +44,16 @@ class CustomersScreen extends ConsumerWidget {
                 children: [
                   Icon(Icons.people_outline, size: 64, color: Colors.grey[400]),
                   const SizedBox(height: 16),
-                  const Text('No customers found. Add one!', 
-                    style: TextStyle(fontSize: 18, color: Colors.grey)),
+                  const Text(
+                    'No customers found. Tap "+ Add Customer" below.', 
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.grey),
+                  ),
                 ],
               ),
             );
           }
           return ListView.builder(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.only(left: 12, right: 12, top: 12, bottom: 100),
             itemCount: customers.length,
             itemBuilder: (context, index) {
               final customer = customers[index];
@@ -47,7 +66,7 @@ class CustomersScreen extends ConsumerWidget {
                   leading: CircleAvatar(
                     backgroundColor: Theme.of(context).primaryColor.withOpacity(0.1),
                     child: Text(
-                      customer.customerName[0].toUpperCase(),
+                      customer.customerName.isNotEmpty ? customer.customerName[0].toUpperCase() : 'C',
                       style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
                     ),
                   ),
@@ -87,7 +106,7 @@ class CustomersScreen extends ConsumerWidget {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.edit_outlined, color: Colors.blue),
-                        onPressed: () => _showCustomerDialog(context, ref, profile!.id, customer: customer),
+                        onPressed: () => _showCustomerDialog(context, ref, shopId, customer: customer),
                       ),
                       IconButton(
                         icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -95,19 +114,23 @@ class CustomersScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
-                  onTap: () => _showCustomerDialog(context, ref, profile!.id, customer: customer),
+                  onTap: () => _showCustomerDialog(context, ref, shopId, customer: customer),
                 ),
               );
-              },
-            );
-          },
+            },
+          );
+        },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCustomerDialog(context, ref, profile!.id),
-        icon: const Icon(Icons.add),
-        label: const Text('Add Customer'),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 75.0),
+        child: FloatingActionButton.extended(
+          onPressed: () => _showCustomerDialog(context, ref, shopId),
+          icon: const Icon(Icons.add),
+          label: const Text('Add Customer'),
+        ),
       ),
     );
   }
@@ -143,8 +166,14 @@ class CustomersScreen extends ConsumerWidget {
     );
   }
 
-  void _showCustomerDialog(BuildContext context, WidgetRef ref, String shopId, {Customer? customer}) {
-    final nameController = TextEditingController(text: customer?.customerName);
+  void _showCustomerDialog(BuildContext context, WidgetRef ref, String? shopId, {Customer? customer}) {
+    final effectiveShopId = shopId ?? ref.read(profileProvider).value?.id ?? '';
+    if (customer == null) {
+      AddCustomerDialog.show(context, shopId: effectiveShopId);
+      return;
+    }
+
+    final nameController = TextEditingController(text: customer.customerName);
     final mobileController = TextEditingController(text: customer?.mobile);
     final cityController = TextEditingController(text: customer?.city);
 
@@ -200,7 +229,7 @@ class CustomersScreen extends ConsumerWidget {
 
               final newCustomer = Customer(
                 id: customer?.id ?? '',
-                shopId: shopId,
+                shopId: effectiveShopId,
                 customerName: nameController.text.trim(),
                 mobile: mobileController.text.trim(),
                 city: cityController.text.trim(),

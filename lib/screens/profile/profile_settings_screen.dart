@@ -4,15 +4,32 @@ import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:go_router/go_router.dart';
 
 class ProfileSettingsScreen extends ConsumerWidget {
-  const ProfileSettingsScreen({super.key});
+  final VoidCallback? onOpenDrawer;
+  const ProfileSettingsScreen({super.key, this.onOpenDrawer});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider).value;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: AppBar(
+        leading: Builder(
+          builder: (scaffoldCtx) => IconButton(
+            icon: const Icon(Icons.menu_rounded, size: 28),
+            tooltip: 'Open Menu',
+            onPressed: () {
+              if (onOpenDrawer != null) {
+                onOpenDrawer!();
+              } else {
+                Scaffold.of(scaffoldCtx).openDrawer();
+              }
+            },
+          ),
+        ),
+        title: const Text('Settings'),
+      ),
       body: ListView(
+        padding: const EdgeInsets.only(bottom: 90),
         children: [
           UserAccountsDrawerHeader(
             decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary),

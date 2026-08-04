@@ -23,4 +23,5 @@ class DatabaseTables {
   static const String invoices = 'invoices';
   static const String invoiceItems = 'invoice_items';
   static const String subscriptions = 'subscriptions';
+  static const String khataTransactions = 'khata_transactions';
 }

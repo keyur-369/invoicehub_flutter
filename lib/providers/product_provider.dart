@@ -13,27 +13,8 @@ final shopProductsProvider = FutureProvider<List<ShopProduct>>((ref) async {
   return ref.watch(businessRepoProvider).getShopProducts(profile.id);
 });
 
+// Unified products now returns ONLY the current shopkeeper's products
 final unifiedProductsProvider = FutureProvider<List<ShopProduct>>((ref) async {
-  final masterProducts = await ref.watch(masterProductsProvider.future);
-  final shopProducts = await ref.watch(shopProductsProvider.future);
-  
-  final Map<String, ShopProduct> shopProductsMap = {
-    for (var p in shopProducts) p.productId: p
-  };
-  
-  return masterProducts.map((mp) {
-    if (shopProductsMap.containsKey(mp.id)) {
-      return shopProductsMap[mp.id]!;
-    } else {
-      return ShopProduct(
-        id: '', 
-        shopId: '', 
-        productId: mp.id,
-        customRate: 0.0,
-        gstPercentage: mp.defaultGstPercentage,
-        createdAt: mp.createdAt,
-        product: mp,
-      );
-    }
-  }).toList();
+  return ref.watch(shopProductsProvider.future);
 });
+

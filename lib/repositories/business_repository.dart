@@ -11,6 +11,8 @@ final businessRepoProvider = Provider((ref) => BusinessRepository());
 class BusinessRepository extends SupabaseService {
   // Customers
   Future<List<Customer>> getCustomers(String shopId) async {
+    if (shopId.isEmpty) return [];
+
     final response = await client
         .from(DatabaseTables.customers)
         .select()
@@ -119,6 +121,79 @@ class BusinessRepository extends SupabaseService {
     });
   }
 
+  // Create a product directly for shopkeeper
+  Future<void> createDirectProductForShop({
+    required String shopId,
+    required String userId,
+    required String productName,
+    required double rate,
+    required double gstPercentage,
+    String unit = 'Pcs',
+    String? categoryId,
+    String? brandId,
+  }) async {
+    // 1. Create master product entry under user_id
+    final masterRes = await client.from(DatabaseTables.masterProducts).insert({
+      'product_name': productName,
+      'unit': unit,
+      'default_gst_percentage': gstPercentage,
+      'created_by': userId,
+      if (categoryId != null && categoryId.isNotEmpty) 'category_id': categoryId,
+      if (brandId != null && brandId.isNotEmpty) 'brand_id': brandId,
+    }).select().single();
+
+    final productId = masterRes['id']?.toString() ?? '';
+
+    // 2. Link product to shop
+    await client.from(DatabaseTables.shopProducts).insert({
+      'shop_id': shopId,
+      'product_id': productId,
+      'custom_rate': rate,
+      'gst_percentage': gstPercentage,
+      'is_active': true,
+    });
+  }
+
+  // Batch import products from CSV
+  Future<int> importProductsBatchFromCsv({
+    required String shopId,
+    required String userId,
+    required List<Map<String, dynamic>> items,
+  }) async {
+    int successCount = 0;
+    for (final item in items) {
+      final String name = item['name']?.toString().trim() ?? '';
+      if (name.isEmpty) continue;
+      final double rate = (item['price'] ?? item['rate'] ?? 0.0).toDouble();
+      final double gst = (item['gst'] ?? item['gst_percentage'] ?? 0.0).toDouble();
+      final String unit = item['unit']?.toString() ?? 'Pcs';
+
+      await createDirectProductForShop(
+        shopId: shopId,
+        userId: userId,
+        productName: name,
+        rate: rate,
+        gstPercentage: gst,
+        unit: unit,
+      );
+      successCount++;
+    }
+    return successCount;
+  }
+
+  // Delete shop product
+  Future<void> deleteShopProduct(String shopProductId) async {
+    await client.from(DatabaseTables.shopProducts).delete().eq('id', shopProductId);
+  }
+
+  // Update product name
+  Future<void> updateProductName(String productId, String newName) async {
+    await client
+        .from(DatabaseTables.masterProducts)
+        .update({'product_name': newName})
+        .eq('id', productId);
+  }
+
   // Categories & Brands
   Future<List<ProductCategory>> getCategories() async {
     final response = await client
@@ -172,5 +247,10 @@ class BusinessRepository extends SupabaseService {
         .single();
 
     return Invoice.fromJson(response);
+  }
+
+  Future<void> deleteInvoice(String invoiceId) async {
+    await client.from(DatabaseTables.invoiceItems).delete().eq('invoice_id', invoiceId);
+    await client.from(DatabaseTables.invoices).delete().eq('id', invoiceId);
   }
 }
