@@ -9,6 +9,7 @@ import 'package:invoicehub/models/business_models.dart';
 import 'package:invoicehub/models/invoice_model.dart';
 import 'package:invoicehub/models/profile.dart';
 import 'package:invoicehub/services/pdf_service.dart';
+import 'package:invoicehub/services/ad_helper.dart';
 
 class InvoicePreviewScreen extends StatefulWidget {
   final String invoiceNumber;
@@ -91,6 +92,9 @@ class _InvoicePreviewScreenState extends State<InvoicePreviewScreen> {
           format: format,
         ),
       );
+
+      // Show full-screen interstitial ad after printing/sharing PDF
+      AdHelper.loadAndShowInterstitialAd();
     } finally {
       if (mounted) setState(() => _isGenerating = false);
     }

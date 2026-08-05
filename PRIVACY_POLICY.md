@@ -26,10 +26,11 @@ We **never** sell, rent, or monetize your personal or business data.
 
 ---
 
-## 3. Third-Party Infrastructure
+## 3. Third-Party Services
 
-We only interface with trusted infrastructure services necessary for application operations:
+We interface with trusted third-party service providers necessary for app operations and monetization:
 - **Supabase**: Cloud database and authentication service (encrypted with HTTPS & Row-Level Security).
+- **Google Mobile Ads (AdMob)**: We use AdMob to serve advertisements. AdMob may collect and process device identifiers, IP address, and advertising ID for ad personalization and analytics in compliance with Google's policies.
 - **Google Play Services**: Core Android platform libraries.
 
 ---

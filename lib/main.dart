@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:invoicehub/core/constants/constants.dart';
 import 'package:invoicehub/core/theme/app_theme.dart';
@@ -8,6 +9,9 @@ import 'package:invoicehub/config/router/router.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Initialize Google Mobile Ads SDK
+  await MobileAds.instance.initialize();
+
   await Supabase.initialize(
     url: AppConstants.supabaseUrl,
     anonKey: AppConstants.supabaseAnonKey,

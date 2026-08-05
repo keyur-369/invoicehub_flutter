@@ -9,6 +9,7 @@ import 'package:invoicehub/screens/profile/profile_settings_screen.dart';
 import 'package:invoicehub/providers/dashboard_provider.dart';
 import 'package:invoicehub/providers/auth_provider.dart';
 import 'package:invoicehub/widgets/app_colors.dart';
+import 'package:invoicehub/widgets/banner_ad_widget.dart';
 import 'package:go_router/go_router.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -51,18 +52,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
       extendBody: true, // Enables body to scroll behind floating nav bar
       drawer: _buildAppDrawer(context, ref, profile),
       body: IndexedStack(index: currentIndex, children: tabs),
-      bottomNavigationBar: Container(
-        margin: const EdgeInsets.only(left: 12, right: 12, bottom: 18),
-        height: 68,
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(32),
-          border: Border.all(color: AppColors.border),
-          boxShadow: [AppColors.cardShadow],
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (currentIndex == 0)
+            const BannerAdWidget(
+              margin: EdgeInsets.only(bottom: 6),
+            ),
+          Container(
+            margin: const EdgeInsets.only(left: 12, right: 12, bottom: 18),
+            height: 68,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(32),
+              border: Border.all(color: AppColors.border),
+              boxShadow: [AppColors.cardShadow],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
             _buildNavItem(
               0,
               Icons.home_rounded,
@@ -103,8 +111,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen> {
               currentIndex,
               AppColors.navHistory,
             ),
-          ],
-        ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
